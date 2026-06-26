@@ -1,6 +1,5 @@
-
 services:
-  # Base de Datos - Persistencia de Repositorios (Paso 2)
+  # Base de Datos (Requisito: MariaDB 10.6)
   db:
     image: mariadb:10.6
     container_name: telecom_db
@@ -19,7 +18,7 @@ services:
       telecom_net:
         ipv4_address: 172.20.0.5
 
-  # Motor de Comunicación VoIP (Paso 2)
+  # Motor de Comunicación VoIP (Debian Bullseye)
   asterisk:
     build:
       context: ./asterisk
@@ -32,16 +31,18 @@ services:
     ports:
       - "5060:5060/udp"
       - "5060:5060/tcp"
-      - "10000-10100:10000-10100/udp" # Rango RTP solicitado
+      - "10000-10100:10000-10100/udp"
     networks:
       telecom_net:
         ipv4_address: 172.20.0.10
 
-  # Gestión de Identidad (Paso 2)
+  # Gestión de Identidad (Alineado con optimización de memoria de Java)
   midpoint:
     image: evolveum/midpoint:latest
     container_name: telecom_midpoint
     restart: always
+    environment:
+      - JAVA_OPTS=-Xms1024m -Xmx2048m       # <--- ASIGNACIÓN EFICIENTE DE RAM PARA EL LAB
     ports:
       - "8443:8443"
       - "8080:8080"

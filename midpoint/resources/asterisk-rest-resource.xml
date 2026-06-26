@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resource xmlns="http://evolveum.com"
+          xmlns:c="http://evolveum.com"
+          xmlns:icfs="http://evolveum.com"
+          xmlns:org="http://evolveum.com"
+          xmlns:q="http://evolveum.com"
+          xmlns:ri="http://evolveum.com"
+          xmlns:t="http://evolveum.com"
+          oid="ef4d7a82-1001-4abc-9999-asteriskrest1">
+
+    <name>Recurso REST Asterisk Filesystem</name>
+
+    <!-- 1. Especificación del Conector Genérico REST -->
+    <connectorRef type="ConnectorType">
+        <filter>
+            <q:equal>
+                <q:path>connectorType</q:path>
+                <q:value>com.evolveum.polygon.connector.rest.GenericRestConnector</q:value>
+            </q:equal>
+        </filter>
+    </connectorRef>
+
+    <connectorConfiguration xmlns:icfc="http://evolveum.com">
+        <icfc:configurationProperties xmlns:genrest="http://evolveum.com">
+            <genrest:baseUrl>http://172.20.0</genrest:baseUrl>
+            <genrest:serviceVersion>v1</genrest:serviceVersion>
+        </icfc:configurationProperties>
+    </connectorConfiguration>
+
+    <!-- 2. Esquema de Atributos del Agente Financiero -->
+    <schemaHandling>
+        <objectType>
+            <kind>account</kind>
+            <intent>default</intent>
+            <displayName>Cuenta SIP de Agente</displayName>
+            <default>true</default>
+            <objectClass>ri:AccountObjectClass</objectClass>
+
+            <!-- Regla de Negocio 1: ID de la Extensión Telefónica -->
+            <attribute>
+                <ref>ri:extension</ref>
+                <displayName>Extensión SIP</displayName>
+                <outbound>
+                    <source>
+                        <c:path>employeeNumber</c:path>
+                    </source>
+                    <!-- MAPPING EVALUADO: Limpieza y validación de entrada -->
+                    <expression>
+                        <script>
+                            <code>
+                                if (employeeNumber == null) return null;
+                                return employeeNumber.toString().replaceAll("\\s+","");
+                            </code>
+                        </script>
+                    </expression>
+                </outbound>
+            </attribute>
+
+            <!-- Regla de Negocio 2: Generación Segura de Contraseñas (ISO 27001) -->
+            <attribute>
+                <ref>ri:secret</ref>
+                <displayName>Secreto SIP</displayName>
+                <outbound>
+                    <source>
+                        <c:path>name/givenName</c:path>
+                    </source>
+                    <expression>
+                        <script>
+                            <code>
+                                if (givenName == null) return "SecPBX2026*";
+                                // Genera una clave dinámica combinando el nombre del usuario y una sal fija de seguridad
+                                return givenName.toLowerCase() + "FinanPBX2026#";
+                            </code>
+                        </script>
+                    </expression>
+                </outbound>
+            </attribute>
+        </objectType>
+    </schemaHandling>
+
+    <!-- 3. Mapeo de Sincronización (Disparadores de Eventos REST) -->
+    <synchronization>
+        <objectSynchronization>
+            <enabled>true</enabled>
+            <correlation>
+                <q:equal>
+                    <q:path>name</q:path>
+                    <q:expression>
+                        <path>$account/attributes/extension</path>
+                    </q:expression>
+                </q:equal>
+            </correlation>
+            <reaction>
+                <situation>unlinked</situation>
+                <action>
+                    <handlerUri>http://evolveum.com</handlerUri>
+                </action>
+            </reaction>
+        </objectSynchronization>
+    </synchronization>
+</resource>

@@ -1,26 +1,36 @@
 import groovy.json.JsonOutput
+import org.identityconnectors.framework.common.objects.AttributesAccessor
 
-log.info("Iniciando aprovisionamiento automatizado del agente vía REST API")
+log.info("--- MIDPOINT OUTBOUND: Iniciando aprovisionamiento via REST API ---")
 
-def extension = attributes['id'] 
-def password = attributes['password']
+def accessor = new AttributesAccessor(attributes)
+def extensionAttr = accessor.findString("extension")
+def secretAttr = accessor.findString("secret")
+
+// Validación de Reglas de Negocio en tiempo de ejecución
+if (!extensionAttr || !secretAttr) {
+    log.error("Atributos invalidos para la provision de la cuenta SIP.")
+    throw new IllegalArgumentException("Extension o Secreto ausentes.")
+}
 
 def payload = [
-    extension: extension,
-    secret: password
+    extension: extensionAttr,
+    secret: secretAttr
 ]
 
-// Petición HTTP POST dirigida directamente al filesystem del contenedor de Asterisk (Puerto 5000)
+// Consumir el endpoint provisto por el contenedor compañero en la subred aislada
 def url = "http://172.20.0"
-def post = new URL(url).openConnection();
-post.setRequestMethod("POST")
-post.setDoOutput(true)
-post.setRequestProperty("Content-Type", "application/json")
-post.getOutputStream().write(JsonOutput.toJson(payload).getBytes("UTF-8"));
+def connection = new URL(url).openConnection()
+connection.setRequestMethod("POST")
+connection.setDoOutput(true)
+connection.setRequestProperty("Content-Type", "application/json")
+connection.getOutputStream().write(JsonOutput.toJson(payload).getBytes("UTF-8"))
 
-def postRC = post.getResponseCode();
-if(postRC == 201) {
-    log.info("Sincronización Completa: Extensión ${extension} dada de alta de forma física en Asterisk.")
+def responseCode = connection.getResponseCode()
+if (responseCode == 201) {
+    log.info("Aprovisionamiento Exitoso de la extension ${extensionAttr} en el filesystem.")
+    return extensionAttr
 } else {
-    log.error("Fallo de aprovisionamiento. Código de error HTTP: " + postRC)
+    log.error("Error de conexion con Asterisk API. Codigo HTTP: " + responseCode)
+    throw new RuntimeException("Fallo en la provision remota.")
 }
