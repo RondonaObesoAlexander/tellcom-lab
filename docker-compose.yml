@@ -1,0 +1,67 @@
+
+services:
+  # Base de Datos - Persistencia de Repositorios (Paso 2)
+  db:
+    image: mariadb:10.6
+    container_name: telecom_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: midpoint_repo
+      MYSQL_USER: midpoint_admin
+      MYSQL_PASSWORD: ${DB_MIDPOINT_PASSWORD}
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.db/init.sql
+      - db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      telecom_net:
+        ipv4_address: 172.20.0.5
+
+  # Motor de Comunicación VoIP (Paso 2)
+  asterisk:
+    build:
+      context: ./asterisk
+      dockerfile: Dockerfile
+    container_name: telecom_asterisk
+    restart: always
+    volumes:
+      - ./asterisk/configs:/etc/asterisk
+      - asterisk_logs:/var/log/asterisk
+    ports:
+      - "5060:5060/udp"
+      - "5060:5060/tcp"
+      - "10000-10100:10000-10100/udp" # Rango RTP solicitado
+    networks:
+      telecom_net:
+        ipv4_address: 172.20.0.10
+
+  # Gestión de Identidad (Paso 2)
+  midpoint:
+    image: evolveum/midpoint:latest
+    container_name: telecom_midpoint
+    restart: always
+    ports:
+      - "8443:8443"
+      - "8080:8080"
+    volumes:
+      - ./midpoint/resources:/opt/midpoint/var/resources
+      - midpoint_home:/opt/midpoint/var
+    depends_on:
+      - db
+    networks:
+      telecom_net:
+        ipv4_address: 172.20.0.20
+
+networks:
+  telecom_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  db_data:
+  asterisk_logs:
+  midpoint_home:
