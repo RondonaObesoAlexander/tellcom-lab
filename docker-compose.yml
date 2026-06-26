@@ -1,5 +1,5 @@
 services:
-  # Base de Datos (Requisito: MariaDB 10.6)
+  # Base de Datos (MariaDB 10.6)
   db:
     image: mariadb:10.6
     container_name: telecom_db
@@ -18,31 +18,27 @@ services:
       telecom_net:
         ipv4_address: 172.20.0.5
 
-  # Motor de Comunicación VoIP (Debian Bullseye)
+  # Central Telefónica Asterisk 18 (Modo NATIVO HOST para romper el NAT)
   asterisk:
     build:
       context: ./asterisk
       dockerfile: Dockerfile
     container_name: telecom_asterisk
     restart: always
+    network_mode: "host"        # <--- SOLUCIÓN MAESTRA DE TELECOMUNICACIONES
     volumes:
       - ./asterisk/configs:/etc/asterisk
       - asterisk_logs:/var/log/asterisk
-    ports:
-      - "5060:5060/udp"
-      - "5060:5060/tcp"
-      - "10000-10100:10000-10100/udp"
-    networks:
-      telecom_net:
-        ipv4_address: 172.20.0.10
+    depends_on:
+      - midpoint
 
-  # Gestión de Identidad (Alineado con optimización de memoria de Java)
+  # Gestor de Identidades midPoint (Optimizado)
   midpoint:
     image: evolveum/midpoint:latest
     container_name: telecom_midpoint
     restart: always
     environment:
-      - JAVA_OPTS=-Xms1024m -Xmx2048m       # <--- ASIGNACIÓN EFICIENTE DE RAM PARA EL LAB
+      - JAVA_OPTS=-Xms1024m -Xmx2048m
     ports:
       - "8443:8443"
       - "8080:8080"
@@ -66,3 +62,4 @@ volumes:
   db_data:
   asterisk_logs:
   midpoint_home:
+
